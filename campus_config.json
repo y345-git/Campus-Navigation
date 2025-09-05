@@ -1,0 +1,142 @@
+{
+  "map_settings": {
+    "center_coordinates": [
+      17.064264,
+      74.282639
+    ],
+    "map_bounds_km": 2.0,
+    "zoom_level": 16
+  },
+  "admin_settings": {
+    "admin_password": "campus_admin_2024",
+    "session_timeout_hours": 24
+  },
+  "buildings": {
+    "Main_Building": {
+      "name": "Main Academic Building",
+      "coordinates": [
+        17.064264,
+        74.282639
+      ],
+      "description": "Primary academic building with classrooms and offices",
+      "type": "academic"
+    },
+    "Library": {
+      "name": "RIT Central Library",
+      "coordinates": [
+        17.063049,
+        74.282099
+      ],
+      "description": "This is the Central Library building",
+      "type": "academic"
+    },
+    "Cafeteria": {
+      "name": "Student Cafeteria",
+      "coordinates": [
+        17.065,
+        74.2834
+      ],
+      "description": "Main dining facility for students and staff",
+      "type": "dining"
+    },
+    "Admin_Block": {
+      "name": "Administration Block",
+      "coordinates": [
+        17.063917,
+        74.283042
+      ],
+      "description": "Administrative offices and departments",
+      "type": "general"
+    },
+    "Engineering_Block": {
+      "name": "Engineering Department",
+      "coordinates": [
+        17.0648,
+        74.2819
+      ],
+      "description": "Engineering classrooms and laboratories",
+      "type": "academic"
+    },
+    "Sports_Complex": {
+      "name": "Sports Complex",
+      "coordinates": [
+        17.0652,
+        74.2822
+      ],
+      "description": "Gymnasium and sports facilities",
+      "type": "recreation"
+    },
+    "Academic Building": {
+      "name": "Diploma / Degree Academic Building",
+      "coordinates": [
+        17.063917,
+        74.283042
+      ],
+      "description": "Student Classrooms and Labs",
+      "type": "academic"
+    }
+  },
+  "intersections": {
+    "intersection_1": [
+      17.064,
+      74.282
+    ],
+    "intersection_2": [
+      17.0645,
+      74.2828
+    ],
+    "intersection_5": [
+      17.0636,
+      74.2822
+    ],
+    "intersection_6": [
+      17.065,
+      74.282
+    ],
+    "Intersection 3": [
+      17.063316,
+      74.282579
+    ],
+    "Intersection 7": [
+      17.062927,
+      74.282166
+    ]
+  },
+  "campus_paths": [
+    [
+      "intersection_1",
+      "intersection_2",
+      120
+    ],
+    [
+      "intersection_5",
+      "intersection_1",
+      140
+    ],
+    [
+      "intersection_6",
+      "intersection_2",
+      200
+    ],
+    [
+      "Main_Building",
+      "Library",
+      110
+    ],
+    [
+      "Library",
+      "Admin_Block",
+      95
+    ],
+    [
+      "Engineering_Block",
+      "Sports_Complex",
+      85
+    ],
+    [
+      "Library",
+      "Intersection 3",
+      59.0
+    ]
+  ]
+}

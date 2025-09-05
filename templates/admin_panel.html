@@ -1,0 +1,1302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Admin Panel - Navigation System</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 300;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-warning:hover {
+            background: #e0a800;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+
+        .btn-full {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 80px);
+        }
+
+        .sidebar {
+            width: 400px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .panel-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #495057;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-row .form-control {
+            flex: 1;
+        }
+
+        .map-container {
+            flex: 1;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+
+        #adminMap {
+            height: 100%;
+            width: 100%;
+        }
+
+        .status-message {
+            position: fixed;
+            top: 100px;
+            right: 20px;
+            max-width: 350px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            display: none;
+            font-size: 0.9rem;
+        }
+
+        .status-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .status-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .list-container {
+            max-height: 250px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            background: white;
+        }
+
+        .list-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-item:last-child {
+            border-bottom: none;
+        }
+
+        .list-item:hover {
+            background: #f8f9fa;
+        }
+
+        .item-info h5 {
+            margin: 0 0 4px 0;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+
+        .item-info p {
+            margin: 0;
+            color: #6c757d;
+            font-size: 0.75rem;
+        }
+
+        .item-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .coordinates-display {
+            font-family: monospace;
+            font-size: 0.75rem;
+        }
+
+        .info-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+
+        .info-box h5 {
+            color: #856404;
+            margin-bottom: 5px;
+            font-size: 0.85rem;
+        }
+
+        .info-box p {
+            color: #856404;
+            margin: 2px 0;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px 20px;
+            color: #6c757d;
+        }
+
+        .empty-state i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .sidebar {
+                width: 100%;
+            }
+            
+            .map-container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1><i class="fas fa-cogs"></i> Campus Admin Panel</h1>
+            <div class="header-actions">
+                <a href="/" class="btn btn-outline">
+                    <i class="fas fa-map"></i> View Campus
+                </a>
+                <a href="/admin/debug" class="btn btn-outline">
+                    <i class="fas fa-bug"></i> Debug
+                </a>
+                <button id="logoutBtn" class="btn btn-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <!-- Map Info Section -->
+            <div class="panel-section">
+                <h3><i class="fas fa-info-circle"></i> Map Information</h3>
+                <div id="mapInfo" class="info-box">
+                    <h5>Campus Boundaries</h5>
+                    <p>Center: <span id="centerCoords">Loading...</span></p>
+                    <p>Bounds: <span id="boundsSize">Loading...</span></p>
+                </div>
+            </div>
+
+            <!-- Add Building Section -->
+            <div class="panel-section">
+                <h3><i class="fas fa-plus-circle"></i> Add Building</h3>
+                <form id="buildingForm">
+                    <div class="form-group">
+                        <label for="buildingId">Building ID:</label>
+                        <input type="text" id="buildingId" class="form-control" required placeholder="e.g., new_building">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="buildingName">Building Name:</label>
+                        <input type="text" id="buildingName" class="form-control" required placeholder="e.g., Science Building">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="buildingType">Type:</label>
+                        <select id="buildingType" class="form-control">
+                            <option value="academic">Academic</option>
+                            <option value="residential">Residential</option>
+                            <option value="dining">Dining</option>
+                            <option value="recreation">Recreation</option>
+                            <option value="student_services">Student Services</option>
+                            <option value="administration">Administration</option>
+                            <option value="general">General</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Coordinates (click map to set):</label>
+                        <div class="form-row">
+                            <input type="number" id="buildingLat" class="form-control" step="0.000001" required placeholder="Latitude">
+                            <input type="number" id="buildingLon" class="form-control" step="0.000001" required placeholder="Longitude">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="buildingDescription">Description:</label>
+                        <textarea id="buildingDescription" class="form-control" rows="2" required placeholder="Brief description"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-save"></i> Save Building
+                    </button>
+                </form>
+            </div>
+
+            <!-- Buildings List -->
+            <div class="panel-section">
+                <h3><i class="fas fa-building"></i> Buildings (<span id="buildingCount">0</span>)</h3>
+                <div id="buildingsList" class="list-container">
+                    <div class="empty-state">
+                        <i class="fas fa-building"></i>
+                        <p>Loading buildings...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Intersection Section -->
+            <div class="panel-section">
+                <h3><i class="fas fa-crosshairs"></i> Add Intersection</h3>
+                <form id="intersectionForm">
+                    <div class="form-group">
+                        <label for="intersectionId">Intersection ID:</label>
+                        <input type="text" id="intersectionId" class="form-control" required placeholder="e.g., intersection_1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Coordinates (click map to set):</label>
+                        <div class="form-row">
+                            <input type="number" id="intersectionLat" class="form-control" step="0.000001" required placeholder="Latitude">
+                            <input type="number" id="intersectionLon" class="form-control" step="0.000001" required placeholder="Longitude">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-success btn-full">
+                        <i class="fas fa-plus"></i> Add Intersection
+                    </button>
+                </form>
+            </div>
+
+            <!-- Intersections List -->
+            <div class="panel-section">
+                <h3><i class="fas fa-map-marker"></i> Intersections (<span id="intersectionCount">0</span>)</h3>
+                <div id="intersectionsList" class="list-container">
+                    <div class="empty-state">
+                        <i class="fas fa-map-marker"></i>
+                        <p>Loading intersections...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Path Section -->
+            <div class="panel-section">
+                <h3><i class="fas fa-route"></i> Add Path</h3>
+                <form id="pathForm">
+                    <div class="form-group">
+                        <label for="pathFrom">From:</label>
+                        <select id="pathFrom" class="form-control" required>
+                            <option value="">Select starting point...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="pathTo">To:</label>
+                        <select id="pathTo" class="form-control" required>
+                            <option value="">Select destination...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="pathDistance">Distance (optional):</label>
+                        <input type="number" id="pathDistance" class="form-control" step="0.1" placeholder="Auto-calculated">
+                        <small style="color: #6c757d; font-size: 0.8rem;">Leave empty for automatic calculation</small>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full">
+                        <i class="fas fa-plus"></i> Add Path
+                    </button>
+                </form>
+            </div>
+
+            <!-- Paths List -->
+            <div class="panel-section">
+                <h3><i class="fas fa-list"></i> Paths (<span id="pathCount">0</span>)</h3>
+                <div id="pathsList" class="list-container">
+                    <div class="empty-state">
+                        <i class="fas fa-route"></i>
+                        <p>Loading paths...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="adminMap">
+                <div class="loading-overlay">
+                    <div style="text-align: center;">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 15px; color: #667eea; font-weight: 500;">Initializing Map...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Message -->
+    <div id="statusMessage" class="status-message"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        class AdminPanel {
+            constructor() {
+                console.log('🚀 Starting Admin Panel...');
+                
+                // Initialize properties
+                this.map = null;
+                this.buildings = [];
+                this.intersections = [];
+                this.paths = [];
+                this.markers = new Map();
+                this.pathLines = [];
+                this.clickMarker = null;
+                this.bounds = null;
+                
+                // Start initialization
+                this.initialize();
+            }
+            
+            async initialize() {
+                try {
+                    console.log('📍 Initializing components...');
+                    
+                    await this.initializeMap();
+                    await this.loadData();
+                    this.setupEventListeners();
+                    
+                    console.log('✅ Admin Panel initialized successfully');
+                    this.showStatus('Admin Panel loaded successfully', 'success');
+                } catch (error) {
+                    console.error('❌ Initialization failed:', error);
+                    this.showStatus(`Initialization failed: ${error.message}`, 'error');
+                }
+            }
+            
+            async initializeMap() {
+                try {
+                    console.log('🗺️ Setting up map...');
+                    
+                    // Clean up any existing map
+                    if (window.adminPanelMap) {
+                        console.log('🧹 Cleaning up existing map...');
+                        window.adminPanelMap.remove();
+                        delete window.adminPanelMap;
+                    }
+                    
+                    // Clear container
+                    const mapContainer = document.getElementById('adminMap');
+                    mapContainer.innerHTML = '';
+                    
+                    // Initialize new map
+                    this.map = L.map('adminMap', {
+                        center: [17.064264, 74.282639],
+                        zoom: 16,
+                        maxZoom: 20,
+                        minZoom: 10
+                    });
+                    
+                    // Store reference
+                    window.adminPanelMap = this.map;
+                    
+                    // Add tile layers
+                    const tileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                        attribution: '© Google Maps',
+                        maxZoom: 20
+                    });
+                    
+                    tileLayer.addTo(this.map);
+                    
+                    // Add click handler
+                    this.map.on('click', (e) => this.handleMapClick(e));
+                    
+                    console.log('✅ Map initialized');
+                } catch (error) {
+                    console.error('❌ Map initialization failed:', error);
+                    throw error;
+                }
+            }
+            
+            async loadData() {
+                try {
+                    console.log('📊 Loading data...');
+                    
+                    await Promise.all([
+                        this.loadMapBounds(),
+                        this.loadBuildings(),
+                        this.loadIntersections(),
+                        this.loadPaths()
+                    ]);
+                    
+                    this.updateNodeSelects();
+                    this.renderMapElements();
+                    
+                    console.log('✅ All data loaded');
+                } catch (error) {
+                    console.error('❌ Data loading failed:', error);
+                    throw error;
+                }
+            }
+            
+            async loadMapBounds() {
+                try {
+                    const response = await fetch('/api/admin/map-bounds');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.bounds = data;
+                        this.updateMapInfo(data);
+                        this.showCampusBounds(data.bounds_coordinates);
+                    }
+                } catch (error) {
+                    console.warn('Map bounds loading failed:', error);
+                    this.updateMapInfo({
+                        center: [17.064264, 74.282639],
+                        bounds_km: 2
+                    });
+                }
+            }
+            
+            async loadBuildings() {
+                try {
+                    const response = await fetch('/api/buildings');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.buildings = data.buildings || [];
+                        this.updateBuildingsList();
+                        console.log(`📍 Loaded ${this.buildings.length} buildings`);
+                    }
+                } catch (error) {
+                    console.warn('Buildings loading failed:', error);
+                    this.buildings = [];
+                    this.updateBuildingsList();
+                }
+            }
+            
+            async loadIntersections() {
+                try {
+                    const response = await fetch('/api/admin/intersections');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.intersections = data.intersections || [];
+                        this.updateIntersectionsList();
+                        console.log(`🚩 Loaded ${this.intersections.length} intersections`);
+                    }
+                } catch (error) {
+                    console.warn('Intersections loading failed:', error);
+                    this.intersections = [];
+                    this.updateIntersectionsList();
+                }
+            }
+            
+            async loadPaths() {
+                try {
+                    const response = await fetch('/api/admin/paths');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.paths = data.paths || [];
+                        this.updatePathsList();
+                        console.log(`🛤️ Loaded ${this.paths.length} paths`);
+                    }
+                } catch (error) {
+                    console.warn('Paths loading failed:', error);
+                    this.paths = [];
+                    this.updatePathsList();
+                }
+            }
+            
+            updateMapInfo(data) {
+                document.getElementById('centerCoords').textContent = 
+                    `${data.center[0].toFixed(4)}, ${data.center[1].toFixed(4)}`;
+                document.getElementById('boundsSize').textContent = 
+                    `${data.bounds_km}km × ${data.bounds_km}km`;
+            }
+            
+            showCampusBounds(boundsCoords) {
+                if (!boundsCoords) return;
+                
+                const bounds = [
+                    [boundsCoords.south_west[0], boundsCoords.south_west[1]],
+                    [boundsCoords.north_east[0], boundsCoords.north_east[1]]
+                ];
+                
+                this.campusBounds = bounds;
+                
+                L.rectangle(bounds, {
+                    color: '#ff7800',
+                    weight: 2,
+                    opacity: 0.6,
+                    fillColor: '#ff7800',
+                    fillOpacity: 0.1,
+                    interactive: false
+                }).addTo(this.map).bindPopup('Campus Boundaries');
+                
+                this.map.fitBounds(bounds, { padding: [20, 20] });
+            }
+            
+            renderMapElements() {
+                this.clearMapElements();
+                this.renderBuildings();
+                this.renderIntersections();
+                this.renderPaths();
+            }
+            
+            clearMapElements() {
+                // Clear existing markers
+                this.markers.forEach(marker => {
+                    if (this.map.hasLayer(marker)) {
+                        this.map.removeLayer(marker);
+                    }
+                });
+                this.markers.clear();
+                
+                // Clear existing paths
+                this.pathLines.forEach(line => {
+                    if (this.map.hasLayer(line)) {
+                        this.map.removeLayer(line);
+                    }
+                });
+                this.pathLines = [];
+            }
+            
+            renderBuildings() {
+                this.buildings.forEach(building => {
+                    const marker = L.marker([building.coordinates[0], building.coordinates[1]], {
+                        icon: L.icon({
+                            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-blue.png',
+                            iconSize: [20, 32],
+                            iconAnchor: [10, 32]
+                        })
+                    }).bindPopup(`
+                        <div style="min-width: 200px;">
+                            <h4>${building.name}</h4>
+                            <p><strong>ID:</strong> ${building.id}</p>
+                            <p><strong>Type:</strong> ${building.type || 'general'}</p>
+                            <p><strong>Coordinates:</strong> ${building.coordinates[0].toFixed(6)}, ${building.coordinates[1].toFixed(6)}</p>
+                            <p>${building.description}</p>
+                        </div>
+                    `);
+                    
+                    marker.addTo(this.map);
+                    this.markers.set(`building_${building.id}`, marker);
+                });
+            }
+            
+            renderIntersections() {
+                this.intersections.forEach(intersection => {
+                    const marker = L.circleMarker([intersection.coordinates[0], intersection.coordinates[1]], {
+                        radius: 8,
+                        fillColor: '#ff7800',
+                        color: '#ff7800',
+                        weight: 2,
+                        opacity: 0.8,
+                        fillOpacity: 0.6
+                    }).bindPopup(`
+                        <div>
+                            <h4>🚶 ${intersection.name}</h4>
+                            <p><strong>ID:</strong> ${intersection.id}</p>
+                            <p><strong>Coordinates:</strong> ${intersection.coordinates[0].toFixed(6)}, ${intersection.coordinates[1].toFixed(6)}</p>
+                            <p><em>Pathway Junction Point</em></p>
+                        </div>
+                    `);
+                    
+                    marker.addTo(this.map);
+                    this.markers.set(`intersection_${intersection.id}`, marker);
+                });
+            }
+            
+            renderPaths() {
+                // Create node lookup
+                const nodes = {};
+                this.buildings.forEach(b => nodes[b.id] = b.coordinates);
+                this.intersections.forEach(i => nodes[i.id] = i.coordinates);
+                
+                // Render paths
+                this.paths.forEach(path => {
+                    const coord1 = nodes[path.node1];
+                    const coord2 = nodes[path.node2];
+                    
+                    if (coord1 && coord2) {
+                        const pathLine = L.polyline([coord1, coord2], {
+                            color: '#667eea',
+                            weight: 3,
+                            opacity: 0.7,
+                            interactive: true
+                        }).bindPopup(`
+                            <div>
+                                <h4>🛤️ Path</h4>
+                                <p><strong>From:</strong> ${path.node1_name}</p>
+                                <p><strong>To:</strong> ${path.node2_name}</p>
+                                <p><strong>Distance:</strong> ${path.distance}m</p>
+                            </div>
+                        `);
+                        
+                        pathLine.addTo(this.map);
+                        this.pathLines.push(pathLine);
+                    }
+                });
+            }
+            
+            updateBuildingsList() {
+                const container = document.getElementById('buildingsList');
+                const countSpan = document.getElementById('buildingCount');
+                
+                countSpan.textContent = this.buildings.length;
+                
+                if (this.buildings.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-building"></i>
+                            <p>No buildings found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = this.buildings.map(building => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <h5>${building.name}</h5>
+                            <p class="coordinates-display">${building.coordinates[0].toFixed(4)}, ${building.coordinates[1].toFixed(4)}</p>
+                            <p>${building.type || 'general'} • ${(building.description || '').substring(0, 30)}...</p>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn btn-warning btn-sm" onclick="adminPanel.editBuilding('${building.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="adminPanel.deleteBuilding('${building.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updateIntersectionsList() {
+                const container = document.getElementById('intersectionsList');
+                const countSpan = document.getElementById('intersectionCount');
+                
+                countSpan.textContent = this.intersections.length;
+                
+                if (this.intersections.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-map-marker"></i>
+                            <p>No intersections found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = this.intersections.map(intersection => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <h5>${intersection.name}</h5>
+                            <p class="coordinates-display">${intersection.coordinates[0].toFixed(4)}, ${intersection.coordinates[1].toFixed(4)}</p>
+                            <p>Intersection Point</p>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn btn-danger btn-sm" onclick="adminPanel.deleteIntersection('${intersection.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updatePathsList() {
+                const container = document.getElementById('pathsList');
+                const countSpan = document.getElementById('pathCount');
+                
+                countSpan.textContent = this.paths.length;
+                
+                if (this.paths.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-route"></i>
+                            <p>No paths found</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = this.paths.map(path => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <h5>${path.node1_name} ↔ ${path.node2_name}</h5>
+                            <p>${path.distance}m</p>
+                            <p>Path Connection</p>
+                        </div>
+                        <div class="item-actions">
+                            <button class="btn btn-danger btn-sm" onclick="adminPanel.deletePath(${path.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            updateNodeSelects() {
+                const selects = ['pathFrom', 'pathTo'];
+                
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (!select) return;
+                    
+                    const currentValue = select.value;
+                    select.innerHTML = '<option value="">Select...</option>';
+                    
+                    // Add buildings
+                    if (this.buildings.length > 0) {
+                        const buildingGroup = document.createElement('optgroup');
+                        buildingGroup.label = 'Buildings';
+                        
+                        this.buildings.forEach(building => {
+                            const option = document.createElement('option');
+                            option.value = building.id;
+                            option.textContent = building.name;
+                            buildingGroup.appendChild(option);
+                        });
+                        
+                        select.appendChild(buildingGroup);
+                    }
+                    
+                    // Add intersections
+                    if (this.intersections.length > 0) {
+                        const intersectionGroup = document.createElement('optgroup');
+                        intersectionGroup.label = 'Intersections';
+                        
+                        this.intersections.forEach(intersection => {
+                            const option = document.createElement('option');
+                            option.value = intersection.id;
+                            option.textContent = intersection.name;
+                            intersectionGroup.appendChild(option);
+                        });
+                        
+                        select.appendChild(intersectionGroup);
+                    }
+                    
+                    select.value = currentValue;
+                });
+            }
+            
+            handleMapClick(e) {
+                const { lat, lng } = e.latlng;
+                
+                // Remove existing click marker
+                if (this.clickMarker) {
+                    this.map.removeLayer(this.clickMarker);
+                }
+                
+                // Add new click marker
+                this.clickMarker = L.marker([lat, lng], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41]
+                    })
+                }).addTo(this.map);
+                
+                // Update coordinate fields
+                this.updateCoordinateFields(lat, lng);
+                
+                // Show status
+                const isInBounds = this.isWithinBounds(lat, lng);
+                const message = `📍 Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}${isInBounds ? '' : ' (outside campus)'}`;
+                this.showStatus(message, 'info');
+            }
+            
+            updateCoordinateFields(lat, lng) {
+                // Update building coordinates
+                const buildingLat = document.getElementById('buildingLat');
+                const buildingLon = document.getElementById('buildingLon');
+                if (buildingLat && buildingLon) {
+                    buildingLat.value = lat.toFixed(6);
+                    buildingLon.value = lng.toFixed(6);
+                }
+                
+                // Update intersection coordinates
+                const intersectionLat = document.getElementById('intersectionLat');
+                const intersectionLon = document.getElementById('intersectionLon');
+                if (intersectionLat && intersectionLon) {
+                    intersectionLat.value = lat.toFixed(6);
+                    intersectionLon.value = lng.toFixed(6);
+                }
+            }
+            
+            isWithinBounds(lat, lng) {
+                if (!this.campusBounds) return true;
+                
+                const [[south, west], [north, east]] = this.campusBounds;
+                const buffer = 0.001;
+                
+                return lat >= (south - buffer) && lat <= (north + buffer) && 
+                       lng >= (west - buffer) && lng <= (east + buffer);
+            }
+            
+            setupEventListeners() {
+                // Building form
+                document.getElementById('buildingForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleBuildingSubmit();
+                });
+                
+                // Intersection form
+                document.getElementById('intersectionForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleIntersectionSubmit();
+                });
+                
+                // Path form
+                document.getElementById('pathForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handlePathSubmit();
+                });
+                
+                // Logout button
+                document.getElementById('logoutBtn').addEventListener('click', async () => {
+                    try {
+                        await fetch('/admin/logout', { method: 'POST' });
+                        window.location.href = '/admin';
+                    } catch (error) {
+                        this.showStatus('Logout failed', 'error');
+                    }
+                });
+            }
+            
+            async handleBuildingSubmit() {
+                const formData = {
+                    id: document.getElementById('buildingId').value.trim(),
+                    name: document.getElementById('buildingName').value.trim(),
+                    type: document.getElementById('buildingType').value,
+                    coordinates: [
+                        parseFloat(document.getElementById('buildingLat').value),
+                        parseFloat(document.getElementById('buildingLon').value)
+                    ],
+                    description: document.getElementById('buildingDescription').value.trim()
+                };
+                
+                try {
+                    const response = await fetch('/api/admin/buildings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        document.getElementById('buildingForm').reset();
+                        if (this.clickMarker) {
+                            this.map.removeLayer(this.clickMarker);
+                            this.clickMarker = null;
+                        }
+                        await this.loadBuildings();
+                        this.updateNodeSelects();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async handleIntersectionSubmit() {
+                const formData = {
+                    id: document.getElementById('intersectionId').value.trim(),
+                    coordinates: [
+                        parseFloat(document.getElementById('intersectionLat').value),
+                        parseFloat(document.getElementById('intersectionLon').value)
+                    ]
+                };
+                
+                try {
+                    const response = await fetch('/api/admin/intersections', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        document.getElementById('intersectionForm').reset();
+                        if (this.clickMarker) {
+                            this.map.removeLayer(this.clickMarker);
+                            this.clickMarker = null;
+                        }
+                        await this.loadIntersections();
+                        this.updateNodeSelects();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async handlePathSubmit() {
+                const formData = {
+                    node1: document.getElementById('pathFrom').value,
+                    node2: document.getElementById('pathTo').value
+                };
+                
+                const distance = document.getElementById('pathDistance').value;
+                if (distance && distance.trim() !== '') {
+                    formData.distance = parseFloat(distance);
+                }
+                
+                try {
+                    const response = await fetch('/api/admin/paths', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(formData)
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        document.getElementById('pathForm').reset();
+                        await this.loadPaths();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            editBuilding(buildingId) {
+                const building = this.buildings.find(b => b.id === buildingId);
+                if (!building) return;
+                
+                // Fill form
+                document.getElementById('buildingId').value = building.id;
+                document.getElementById('buildingName').value = building.name;
+                document.getElementById('buildingType').value = building.type || 'general';
+                document.getElementById('buildingLat').value = building.coordinates[0];
+                document.getElementById('buildingLon').value = building.coordinates[1];
+                document.getElementById('buildingDescription').value = building.description;
+                
+                // Center map on building
+                this.map.setView([building.coordinates[0], building.coordinates[1]], 18);
+                this.handleMapClick({ latlng: { lat: building.coordinates[0], lng: building.coordinates[1] } });
+                
+                this.showStatus(`Editing: ${building.name}`, 'info');
+            }
+            
+            async deleteBuilding(buildingId) {
+                if (!confirm('Delete this building? All associated paths will also be removed.')) return;
+                
+                try {
+                    const response = await fetch(`/api/admin/buildings/${buildingId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        await Promise.all([
+                            this.loadBuildings(),
+                            this.loadPaths()
+                        ]);
+                        this.updateNodeSelects();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async deleteIntersection(intersectionId) {
+                if (!confirm('Delete this intersection? All associated paths will also be removed.')) return;
+                
+                try {
+                    const response = await fetch(`/api/admin/intersections/${intersectionId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        await Promise.all([
+                            this.loadIntersections(),
+                            this.loadPaths()
+                        ]);
+                        this.updateNodeSelects();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            async deletePath(pathId) {
+                if (!confirm('Delete this path?')) return;
+                
+                try {
+                    const response = await fetch(`/api/admin/paths/${pathId}`, {
+                        method: 'DELETE'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.showStatus(data.message, 'success');
+                        await this.loadPaths();
+                        this.renderMapElements();
+                    } else {
+                        this.showStatus(data.error, 'error');
+                    }
+                } catch (error) {
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+            
+            showStatus(message, type = 'info') {
+                const statusDiv = document.getElementById('statusMessage');
+                statusDiv.className = `status-message status-${type}`;
+                statusDiv.textContent = message;
+                statusDiv.style.display = 'block';
+                
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, type === 'error' ? 6000 : 4000);
+            }
+        }
+        
+        // Initialize when DOM is ready
+        let adminPanel;
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                adminPanel = new AdminPanel();
+            });
+        } else {
+            adminPanel = new AdminPanel();
+        }
+        
+        // Make adminPanel globally accessible for inline event handlers
+        window.adminPanel = adminPanel;
+    </script>
+</body>
+</html>
