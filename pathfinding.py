@@ -383,6 +383,12 @@ class CampusPathfinder:
             self.building_graphs.pop(building_id, None)
         else:
             self.building_graphs.clear()
+    
+    def update_campus_graph(self, new_graph):
+        """Update the campus graph reference when it changes"""
+        self.graph = new_graph
+        # Clear building graphs cache as campus changes might affect building connections
+        self.clear_building_graph_cache()
 
 # Create global pathfinder instance
 pathfinder = CampusPathfinder()

@@ -165,6 +165,8 @@ def add_or_update_building():
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             return jsonify({
                 'success': True,
@@ -202,6 +204,8 @@ def delete_building(building_id):
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             return jsonify({
                 'success': True,
@@ -270,6 +274,8 @@ def add_intersection():
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             return jsonify({
                 'success': True,
@@ -310,6 +316,8 @@ def delete_intersection(intersection_id):
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             return jsonify({
                 'success': True,
@@ -415,6 +423,8 @@ def add_path():
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             node1_name = BUILDINGS.get(node1, {}).get('name', node1.replace('_', ' ').title())
             node2_name = BUILDINGS.get(node2, {}).get('name', node2.replace('_', ' ').title())
@@ -457,6 +467,8 @@ def delete_path(path_id):
             global campus_graph
             from campus_data import create_campus_graph
             campus_graph = create_campus_graph()
+            # Update pathfinder with new graph
+            pathfinder.update_campus_graph(campus_graph)
             
             return jsonify({
                 'success': True,
