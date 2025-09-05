@@ -533,6 +533,52 @@ def find_route():
             'error': str(e)
         }), 500
 
+@app.route('/api/route/path', methods=['POST'])
+def find_route_path_only():
+    """Find the shortest route between two buildings, returning only the path (node IDs)"""
+    try:
+        data = request.get_json()
+        if not data or 'start' not in data or 'end' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing start or end building'
+            }), 400
+
+        start = data['start']
+        end = data['end']
+
+        # Validate building IDs
+        if start not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid start building: {start}'
+            }), 400
+        if end not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid end building: {end}'
+            }), 400
+
+        route_info = pathfinder.find_route(start, end)
+        if not route_info['success']:
+            return jsonify(route_info), 400
+
+        # Only return the path (node IDs), not coordinates
+        return jsonify({
+            'success': True,
+            'start': start,
+            'end': end,
+            'path': route_info['path'],
+            'total_distance': route_info['total_distance'],
+            'estimated_walk_time': route_info['estimated_walk_time']
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/destinations/<building_id>', methods=['GET'])
 def get_destinations(building_id):
     """Get all possible destinations from a given building"""
