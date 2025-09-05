@@ -13,6 +13,7 @@ from typing import Tuple, Dict, List
 BUILDINGS = {}
 INTERSECTIONS = {}
 CAMPUS_CONFIG = {}
+BUILDING_INTERIORS = {}  # Store building interior configurations
 MAP_CENTER = (40.7831, -73.9712)
 MAP_BOUNDS_KM = 2.0
 
@@ -131,6 +132,208 @@ def _load_default_config():
         'intersection_5': (40.7811, -73.9712),
         'intersection_6': (40.7861, -73.9702)
     }
+
+def load_building_interior_config(building_id: str) -> Dict:
+    """Load building interior configuration from JSON file"""
+    config_file = f'buildings/{building_id}_interior.json'
+    
+    try:
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                return json.load(f)
+        else:
+            return _create_default_building_interior(building_id)
+    except Exception as e:
+        print(f"Error loading building interior config for {building_id}: {e}")
+        return _create_default_building_interior(building_id)
+
+def _create_default_building_interior(building_id: str) -> Dict:
+    """Create default building interior structure"""
+    return {
+        'building_id': building_id,
+        'building_name': BUILDINGS.get(building_id, {}).get('name', building_id),
+        'floors': {
+            'ground': {
+                'name': 'Ground Floor',
+                'level': 0,
+                'rooms': {},
+                'connections': [],
+                'entrances': ['main_entrance'],
+                'floor_plan': {
+                    'width': 100,
+                    'height': 100,
+                    'scale_meters_per_unit': 1.0
+                }
+            }
+        },
+        'vertical_connections': {
+            'stairs': [],
+            'elevators': []
+        },
+        'room_types': {
+            'classroom': {'icon': 'chalkboard-teacher', 'color': 'blue'},
+            'office': {'icon': 'briefcase', 'color': 'green'},
+            'lab': {'icon': 'flask', 'color': 'purple'},
+            'entrance': {'icon': 'door-open', 'color': 'orange'},
+            'stairs': {'icon': 'stairs', 'color': 'gray'},
+            'elevator': {'icon': 'elevator', 'color': 'gray'},
+            'restroom': {'icon': 'restroom', 'color': 'lightblue'},
+            'common': {'icon': 'users', 'color': 'yellow'}
+        }
+    }
+
+def save_building_interior_config(building_id: str, config_data: Dict) -> bool:
+    """Save building interior configuration to JSON file"""
+    try:
+        # Create buildings directory if it doesn't exist
+        os.makedirs('buildings', exist_ok=True)
+        
+        config_file = f'buildings/{building_id}_interior.json'
+        with open(config_file, 'w') as f:
+            json.dump(config_data, f, indent=2)
+        
+        # Update in-memory storage
+        BUILDING_INTERIORS[building_id] = config_data
+        return True
+    except Exception as e:
+        print(f"Error saving building interior config for {building_id}: {e}")
+        return False
+
+def load_all_building_interiors():
+    """Load all building interior configurations"""
+    global BUILDING_INTERIORS
+    BUILDING_INTERIORS = {}
+    
+    # Create buildings directory if it doesn't exist
+    os.makedirs('buildings', exist_ok=True)
+    
+    for building_id in BUILDINGS.keys():
+        BUILDING_INTERIORS[building_id] = load_building_interior_config(building_id)
+
+def create_building_interior_graph(building_id: str) -> nx.Graph:
+    """Create a NetworkX graph for building interior navigation"""
+    if building_id not in BUILDING_INTERIORS:
+        return nx.Graph()
+    
+    interior_config = BUILDING_INTERIORS[building_id]
+    G = nx.Graph()
+    
+    # Add rooms as nodes
+    for floor_id, floor_data in interior_config['floors'].items():
+        floor_level = floor_data['level']
+        
+        for room_id, room_data in floor_data['rooms'].items():
+            node_id = f"{building_id}_{floor_id}_{room_id}"
+            G.add_node(node_id,
+                      name=room_data.get('name', room_id),
+                      room_type=room_data.get('type', 'common'),
+                      floor=floor_id,
+                      floor_level=floor_level,
+                      coordinates=room_data.get('coordinates', [0, 0]),
+                      building_id=building_id,
+                      node_type='room')
+        
+        # Add connections within floor
+        for connection in floor_data.get('connections', []):
+            if len(connection) >= 2:
+                room1_id = f"{building_id}_{floor_id}_{connection[0]}"
+                room2_id = f"{building_id}_{floor_id}_{connection[1]}"
+                distance = connection[2] if len(connection) > 2 else 10  # Default 10 meters
+                
+                if G.has_node(room1_id) and G.has_node(room2_id):
+                    G.add_edge(room1_id, room2_id, weight=distance, connection_type='hallway')
+        
+        # Add vertical connection nodes to the floor
+        for stair_data in interior_config['vertical_connections']['stairs']:
+            if floor_id in stair_data.get('floors', []):
+                stair_node_id = f"{building_id}_{floor_id}_stairs_{stair_data.get('id', '1')}"
+                G.add_node(stair_node_id,
+                          name=f"{stair_data.get('name', 'Stairs')} (Floor {floor_id})",
+                          room_type='stairs',
+                          floor=floor_id,
+                          floor_level=floor_level,
+                          coordinates=stair_data.get('location', [0, 0]),
+                          building_id=building_id,
+                          node_type='vertical_connection')
+        
+        for elevator_data in interior_config['vertical_connections']['elevators']:
+            if floor_id in elevator_data.get('floors', []):
+                elevator_node_id = f"{building_id}_{floor_id}_elevator_{elevator_data.get('id', '1')}"
+                G.add_node(elevator_node_id,
+                          name=f"{elevator_data.get('name', 'Elevator')} (Floor {floor_id})",
+                          room_type='elevator',
+                          floor=floor_id,
+                          floor_level=floor_level,
+                          coordinates=elevator_data.get('location', [0, 0]),
+                          building_id=building_id,
+                          node_type='vertical_connection')
+    
+    # Add vertical connections (stairs, elevators)
+    for stair_data in interior_config['vertical_connections']['stairs']:
+        _add_vertical_connection(G, building_id, stair_data, 'stairs')
+    
+    for elevator_data in interior_config['vertical_connections']['elevators']:
+        _add_vertical_connection(G, building_id, elevator_data, 'elevator')
+    
+    return G
+
+def _add_vertical_connection(graph: nx.Graph, building_id: str, connection_data: Dict, connection_type: str):
+    """Add stairs or elevator connections between floors"""
+    floors = connection_data.get('floors', [])
+    location = connection_data.get('location', [0, 0])
+    
+    # Create vertical connection nodes for each floor
+    vertical_nodes = []
+    for floor_id in floors:
+        node_id = f"{building_id}_{floor_id}_{connection_type}_{connection_data.get('id', '1')}"
+        
+        if not graph.has_node(node_id):
+            graph.add_node(node_id,
+                          name=f"{connection_type.title()} {connection_data.get('id', '1')}",
+                          room_type=connection_type,
+                          floor=floor_id,
+                          coordinates=location,
+                          building_id=building_id,
+                          node_type='vertical_connection')
+        
+        vertical_nodes.append(node_id)
+    
+    # Connect vertical nodes
+    for i in range(len(vertical_nodes) - 1):
+        distance = 15 if connection_type == 'stairs' else 5  # Stairs take longer
+        graph.add_edge(vertical_nodes[i], vertical_nodes[i + 1], 
+                      weight=distance, connection_type=connection_type)
+
+def get_building_entrance_rooms(building_id: str) -> List[str]:
+    """Get list of entrance room IDs for a building"""
+    if building_id not in BUILDING_INTERIORS:
+        return []
+    
+    entrance_rooms = []
+    interior_config = BUILDING_INTERIORS[building_id]
+    
+    for floor_id, floor_data in interior_config['floors'].items():
+        for entrance_id in floor_data.get('entrances', []):
+            entrance_room_id = f"{building_id}_{floor_id}_{entrance_id}"
+            entrance_rooms.append(entrance_room_id)
+    
+    return entrance_rooms
+
+def get_room_full_id(building_id: str, room_name: str) -> str:
+    """Find full room ID from room name or partial ID"""
+    if building_id not in BUILDING_INTERIORS:
+        return None
+    
+    interior_config = BUILDING_INTERIORS[building_id]
+    
+    for floor_id, floor_data in interior_config['floors'].items():
+        for room_id, room_data in floor_data['rooms'].items():
+            # Check if room_name matches room_id or room name
+            if (room_id.lower() == room_name.lower() or 
+                room_data.get('name', '').lower() == room_name.lower()):
+                return f"{building_id}_{floor_id}_{room_id}"
+    
+    return None
 
 def save_campus_config():
     """Save current campus configuration to JSON file"""
@@ -278,3 +481,6 @@ def get_building_list():
 # Initialize campus data when module is imported
 load_campus_config()
 campus_graph = create_campus_graph()
+
+# Load building interior configurations
+load_all_building_interiors()

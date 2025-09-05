@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Campus Navigation</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #map { height: 300px; width: 100%; border: 1px solid #ccc; margin: 20px 0; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        select { padding: 10px; margin: 10px; width: 200px; }
+    </style>
+</head>
+<body>
+    <h1>Campus Navigation Debug</h1>
+    
+    <div class="debug">
+        <h3>API Test Results:</h3>
+        <div id="apiResults">Testing...</div>
+    </div>
+    
+    <div class="debug">
+        <h3>Map Test:</h3>
+        <div id="mapTest">Initializing map...</div>
+        <div id="map"></div>
+    </div>
+    
+    <div class="debug">
+        <h3>Building Selects:</h3>
+        <select id="buildings1">
+            <option>Loading...</option>
+        </select>
+        <select id="buildings2">
+            <option>Loading...</option>
+        </select>
+    </div>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        async function testAPI() {
+            try {
+                console.log('Testing API...');
+                const response = await fetch('/api/buildings');
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success && data.buildings) {
+                    document.getElementById('apiResults').innerHTML = `
+                        <div class="success">
+                            ✅ API Working: Loaded ${data.buildings.length} buildings<br>
+                            Buildings: ${data.buildings.map(b => b.name).join(', ')}
+                        </div>
+                    `;
+                    
+                    // Populate selects
+                    const select1 = document.getElementById('buildings1');
+                    const select2 = document.getElementById('buildings2');
+                    
+                    select1.innerHTML = '<option value="">Choose building...</option>';
+                    select2.innerHTML = '<option value="">Choose building...</option>';
+                    
+                    data.buildings.forEach(building => {
+                        const option1 = document.createElement('option');
+                        option1.value = building.id;
+                        option1.textContent = building.name;
+                        
+                        const option2 = document.createElement('option');
+                        option2.value = building.id;
+                        option2.textContent = building.name;
+                        
+                        select1.appendChild(option1);
+                        select2.appendChild(option2);
+                    });
+                    
+                    return data.buildings;
+                } else {
+                    throw new Error('API returned success=false');
+                }
+            } catch (error) {
+                console.error('API Error:', error);
+                document.getElementById('apiResults').innerHTML = `
+                    <div class="error">❌ API Error: ${error.message}</div>
+                `;
+                return null;
+            }
+        }
+        
+        async function testMap(buildings) {
+            try {
+                console.log('Testing map...');
+                
+                // Calculate center from buildings
+                let center = [17.064264, 74.282639]; // Default
+                if (buildings && buildings.length > 0) {
+                    const lats = buildings.map(b => b.coordinates[0]);
+                    const lons = buildings.map(b => b.coordinates[1]);
+                    center = [
+                        (Math.min(...lats) + Math.max(...lats)) / 2,
+                        (Math.min(...lons) + Math.max(...lons)) / 2
+                    ];
+                }
+                
+                console.log('Map center:', center);
+                
+                const map = L.map('map').setView(center, 16);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                // Add building markers
+                if (buildings) {
+                    buildings.forEach(building => {
+                        L.marker([building.coordinates[0], building.coordinates[1]])
+                            .bindPopup(`<h4>${building.name}</h4><p>${building.description}</p>`)
+                            .addTo(map);
+                    });
+                }
+                
+                document.getElementById('mapTest').innerHTML = `
+                    <div class="success">✅ Map Loaded Successfully</div>
+                `;
+                
+            } catch (error) {
+                console.error('Map Error:', error);
+                document.getElementById('mapTest').innerHTML = `
+                    <div class="error">❌ Map Error: ${error.message}</div>
+                `;
+            }
+        }
+        
+        // Initialize debug tests
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Starting debug tests...');
+            
+            const buildings = await testAPI();
+            await testMap(buildings);
+            
+            console.log('Debug tests completed');
+        });
+    </script>
+</body>
+</html>

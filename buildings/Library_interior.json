@@ -1,0 +1,199 @@
+{
+  "building_id": "Library",
+  "building_name": "RIT Central Library",
+  "floors": {
+    "ground": {
+      "name": "Ground Floor",
+      "level": 0,
+      "rooms": {
+        "main_entrance": {
+          "name": "Main Entrance",
+          "type": "entrance",
+          "coordinates": [10, 50],
+          "description": "Main building entrance"
+        },
+        "reception": {
+          "name": "Reception Desk",
+          "type": "common",
+          "coordinates": [20, 50],
+          "description": "Information and help desk"
+        },
+        "reading_hall_1": {
+          "name": "Reading Hall 1",
+          "type": "common",
+          "coordinates": [40, 30],
+          "description": "Quiet study area with individual desks"
+        },
+        "computer_lab": {
+          "name": "Computer Lab",
+          "type": "lab",
+          "coordinates": [40, 70],
+          "description": "Public computer access area"
+        },
+        "restroom_g1": {
+          "name": "Restroom (Ground)",
+          "type": "restroom",
+          "coordinates": [70, 50],
+          "description": "Ground floor restroom facilities"
+        }
+      },
+      "connections": [
+        ["main_entrance", "reception", 8],
+        ["reception", "reading_hall_1", 25],
+        ["reception", "computer_lab", 22],
+        ["reading_hall_1", "computer_lab", 15],
+        ["reception", "restroom_g1", 35],
+        ["reception", "stairs_1", 12],
+        ["reception", "elevator_1", 15]
+      ],
+      "entrances": ["main_entrance"],
+      "floor_plan": {
+        "width": 80,
+        "height": 80,
+        "scale_meters_per_unit": 1.0
+      }
+    },
+    "first": {
+      "name": "First Floor",
+      "level": 1,
+      "rooms": {
+        "reference_section": {
+          "name": "Reference Section",
+          "type": "common",
+          "coordinates": [30, 30],
+          "description": "Reference books and research materials"
+        },
+        "study_room_1": {
+          "name": "Study Room 1",
+          "type": "classroom",
+          "coordinates": [60, 20],
+          "description": "Private group study room"
+        },
+        "study_room_2": {
+          "name": "Study Room 2",
+          "type": "classroom",
+          "coordinates": [60, 40],
+          "description": "Private group study room"
+        },
+        "librarian_office": {
+          "name": "Librarian Office",
+          "type": "office",
+          "coordinates": [20, 60],
+          "description": "Head librarian office"
+        },
+        "restroom_f1": {
+          "name": "Restroom (First)",
+          "type": "restroom",
+          "coordinates": [70, 50],
+          "description": "First floor restroom facilities"
+        }
+      },
+      "connections": [
+        ["stairs_1", "reference_section", 15],
+        ["elevator_1", "reference_section", 18],
+        ["reference_section", "study_room_1", 25],
+        ["reference_section", "study_room_2", 20],
+        ["reference_section", "librarian_office", 22],
+        ["study_room_1", "study_room_2", 12],
+        ["reference_section", "restroom_f1", 40]
+      ],
+      "entrances": [],
+      "floor_plan": {
+        "width": 80,
+        "height": 80,
+        "scale_meters_per_unit": 1.0
+      }
+    },
+    "second": {
+      "name": "Second Floor",
+      "level": 2,
+      "rooms": {
+        "digital_archive": {
+          "name": "Digital Archive",
+          "type": "lab",
+          "coordinates": [30, 30],
+          "description": "Digital resources and archive access"
+        },
+        "conference_room": {
+          "name": "Conference Room",
+          "type": "classroom",
+          "coordinates": [50, 40],
+          "description": "Large meeting and presentation room"
+        },
+        "silent_study": {
+          "name": "Silent Study Area",
+          "type": "common",
+          "coordinates": [60, 60],
+          "description": "Quiet individual study space"
+        }
+      },
+      "connections": [
+        ["stairs_1", "digital_archive", 18],
+        ["elevator_1", "digital_archive", 15],
+        ["digital_archive", "conference_room", 20],
+        ["digital_archive", "silent_study", 25],
+        ["conference_room", "silent_study", 15]
+      ],
+      "entrances": [],
+      "floor_plan": {
+        "width": 80,
+        "height": 80,
+        "scale_meters_per_unit": 1.0
+      }
+    }
+  },
+  "vertical_connections": {
+    "stairs": [
+      {
+        "id": "1",
+        "name": "Main Stairs",
+        "floors": ["ground", "first", "second"],
+        "location": [25, 35],
+        "description": "Main staircase connecting all floors"
+      }
+    ],
+    "elevators": [
+      {
+        "id": "1",
+        "name": "Main Elevator",
+        "floors": ["ground", "first", "second"],
+        "location": [30, 40],
+        "description": "Accessible elevator for all floors"
+      }
+    ]
+  },
+  "room_types": {
+    "classroom": {
+      "icon": "chalkboard-teacher",
+      "color": "blue"
+    },
+    "office": {
+      "icon": "briefcase",
+      "color": "green"
+    },
+    "lab": {
+      "icon": "flask",
+      "color": "purple"
+    },
+    "entrance": {
+      "icon": "door-open",
+      "color": "orange"
+    },
+    "stairs": {
+      "icon": "stairs",
+      "color": "gray"
+    },
+    "elevator": {
+      "icon": "elevator",
+      "color": "gray"
+    },
+    "restroom": {
+      "icon": "restroom",
+      "color": "lightblue"
+    },
+    "common": {
+      "icon": "users",
+      "color": "yellow"
+    }
+  }
+}

@@ -85,10 +85,6 @@
       17.0645,
       74.2828
     ],
-    "intersection_5": [
-      17.0636,
-      74.2822
-    ],
     "intersection_6": [
       17.065,
       74.282
@@ -100,6 +96,14 @@
     "Intersection 7": [
       17.062927,
       74.282166
+    ],
+    "Intersection 8": [
+      17.063555,
+      74.282898
+    ],
+    "Intersection 5": [
+      17.0639,
+      74.282135
     ]
   },
   "campus_paths": [
@@ -109,24 +113,9 @@
       120
     ],
     [
-      "intersection_5",
-      "intersection_1",
-      140
-    ],
-    [
       "intersection_6",
       "intersection_2",
       200
-    ],
-    [
-      "Main_Building",
-      "Library",
-      110
-    ],
-    [
-      "Library",
-      "Admin_Block",
-      95
     ],
     [
       "Engineering_Block",
@@ -135,8 +124,53 @@
     ],
     [
       "Library",
+      "Intersection 7",
+      15.3
+    ],
+    [
+      "Intersection 7",
       "Intersection 3",
-      59.0
+      61.6
+    ],
+    [
+      "Intersection 3",
+      "Intersection 8",
+      43.1
+    ],
+    [
+      "Intersection 8",
+      "Academic Building",
+      43.1
+    ],
+    [
+      "Cafeteria",
+      "intersection_2",
+      84.6
+    ],
+    [
+      "Admin_Block",
+      "Intersection 8",
+      43.1
+    ],
+    [
+      "Engineering_Block",
+      "intersection_6",
+      24.6
+    ],
+    [
+      "intersection_1",
+      "Main_Building",
+      74.0
+    ],
+    [
+      "Intersection 3",
+      "Intersection 5",
+      80.3
+    ],
+    [
+      "Intersection 5",
+      "Main_Building",
+      67.1
     ]
   ]
 }

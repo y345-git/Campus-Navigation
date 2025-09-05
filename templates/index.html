@@ -162,6 +162,79 @@
             display: none;
         }
 
+        /* Floating route results overlay */
+        .route-results-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            max-width: 320px;
+            min-width: 280px;
+            display: none;
+            transition: all 0.3s ease;
+        }
+
+        .route-results-overlay.show {
+            display: block;
+            animation: slideInFromRight 0.4s ease-out;
+        }
+
+        @keyframes slideInFromRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .route-overlay-header {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .route-overlay-header h4 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .route-overlay-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .route-overlay-close:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .route-overlay-content {
+            padding: 20px;
+        }
+
         .route-info {
             background: #e8f5e8;
             border: 1px solid #4caf50;
@@ -365,9 +438,19 @@
                         
                         <div class="form-group">
                             <label for="endBuilding">To:</label>
-                            <select id="endBuilding" class="form-control" required>
+                            <select id="endBuilding" class="form-control" required onchange="loadRoomOptions()">
                                 <option value="">Select destination building...</option>
                             </select>
+                        </div>
+                        
+                        <div class="form-group" id="roomSelectionGroup" style="display: none;">
+                            <label for="endRoom"><i class="fas fa-door-open"></i> Specific Room (Optional):</label>
+                            <select id="endRoom" class="form-control">
+                                <option value="">Building entrance (default)</option>
+                            </select>
+                            <small style="color: #6c757d; font-size: 0.9em; margin-top: 5px; display: block;">
+                                <i class="fas fa-info-circle"></i> Leave blank to navigate to building entrance
+                            </small>
                         </div>
                         
                         <button type="submit" class="btn btn-primary btn-full">
@@ -415,6 +498,31 @@
 
             <div class="map-container">
                 <div id="map"></div>
+                
+                <!-- Floating Route Results Overlay -->
+                <div id="routeResultsOverlay" class="route-results-overlay">
+                    <div class="route-overlay-header">
+                        <h4><i class="fas fa-check-circle"></i> Route Found</h4>
+                        <button class="route-overlay-close" onclick="closeRouteOverlay()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="route-overlay-content">
+                        <div class="route-stats">
+                            <div class="stat-item">
+                                <div class="stat-value" id="overlayTotalDistance">0m</div>
+                                <div class="stat-label">Distance</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="overlayWalkTime">0 min</div>
+                                <div class="stat-label">Walk Time</div>
+                            </div>
+                        </div>
+                        <div class="path-details" id="overlayPathDetails">
+                            <!-- Path steps will be inserted here -->
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -432,69 +540,87 @@
                 this.markers = [];
                 this.routeLine = null;
                 
-                this.initMap();
-                this.loadBuildings();
-                this.bindEvents();
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    await this.initMap();
+                    await this.loadBuildings();
+                    this.bindEvents();
+                } catch (error) {
+                    console.error('Error during initialization:', error);
+                }
             }
 
             async initMap() {
-                // Clear any existing map instance
-                if (window.mainMapInstance) {
-                    window.mainMapInstance.remove();
-                    delete window.mainMapInstance;
-                }
-                
-                // Clear and reset the container
-                const mapContainer = document.getElementById('map');
-                mapContainer.innerHTML = '';
-                mapContainer.style.cssText = 'width: 100%; height: 100%;';
-                
-                // Get map configuration from server
-                const mapConfig = await this.getMapConfig();
-                
-                // Initialize map with bounded view
-                this.map = L.map('map').setView(mapConfig.center, mapConfig.zoom);
-                window.mainMapInstance = this.map; // Store reference for cleanup
-                
-                // Define multiple tile layers
-                this.tileLayers = {
-                    'Satellite (Google)': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-                        attribution: '© Google Maps',
-                        maxZoom: 20
-                    }),
-                    'Satellite (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                        attribution: '© Esri',
-                        maxZoom: 19
-                    }),
-                    'Hybrid (Google)': L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                        attribution: '© Google Maps',
-                        maxZoom: 20
-                    }),
-                    'Street Map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors',
-                        maxZoom: 19
-                    }),
-                    'Terrain (Stamen)': L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg', {
-                        attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
-                        maxZoom: 16
-                    }),
-                    'CartoDB Light': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                        attribution: '© OpenStreetMap © CartoDB',
-                        maxZoom: 19
-                    })
-                };
-                
-                // Add default satellite layer
-                this.currentLayer = this.tileLayers['Satellite (Google)'];
-                this.currentLayer.addTo(this.map);
-                
-                // Add layer control
-                this.layerControl = L.control.layers(this.tileLayers).addTo(this.map);
-                
-                // Set map bounds to restrict view to campus area
-                if (mapConfig.bounds) {
-                    this.map.setMaxBounds(mapConfig.bounds);
-                    this.map.fitBounds(mapConfig.bounds, { padding: [10, 10] });
+                try {
+                    // Clear any existing map instance
+                    if (window.mainMapInstance) {
+                        window.mainMapInstance.remove();
+                        delete window.mainMapInstance;
+                    }
+                    
+                    // Clear and reset the container
+                    const mapContainer = document.getElementById('map');
+                    mapContainer.innerHTML = '';
+                    mapContainer.style.cssText = 'width: 100%; height: 100%;';
+                    
+                    // Get map configuration from server
+                    const mapConfig = await this.getMapConfig();
+                    
+                    // Initialize map with bounded view
+                    this.map = L.map('map').setView(mapConfig.center, mapConfig.zoom);
+                    window.mainMapInstance = this.map; // Store reference for cleanup
+                    
+                    // Define multiple tile layers
+                    this.tileLayers = {
+                        'Street Map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors',
+                            maxZoom: 19
+                        }),
+                        'Satellite (Google)': L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                            attribution: '© Google Maps',
+                            maxZoom: 20
+                        }),
+                        'Hybrid (Google)': L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                            attribution: '© Google Maps',
+                            maxZoom: 20
+                        }),
+                        'CartoDB Light': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                            attribution: '© OpenStreetMap © CartoDB',
+                            maxZoom: 19
+                        })
+                    };
+                    
+                    // Add default Satellite layer
+                    this.currentLayer = this.tileLayers['Satellite (Google)'];
+                    this.currentLayer.addTo(this.map);
+                    
+                    // Add layer control
+                    this.layerControl = L.control.layers(this.tileLayers).addTo(this.map);
+                    
+                    // Set map bounds to restrict view to campus area
+                    if (mapConfig.bounds) {
+                        this.map.setMaxBounds(mapConfig.bounds);
+                        this.map.fitBounds(mapConfig.bounds, { padding: [10, 10] });
+                    }
+                } catch (error) {
+                    console.error('Error initializing map:', error);
+                    // Show error message to user
+                    const mapContainer = document.getElementById('map');
+                    mapContainer.innerHTML = `
+                        <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f8f9fa; color: #666;">
+                            <div style="text-align: center;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #dc3545; margin-bottom: 15px;"></i>
+                                <h3>Map Loading Error</h3>
+                                <p>Unable to initialize the map. Please check your internet connection.</p>
+                                <button onclick="location.reload()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                    Reload Page
+                                </button>
+                            </div>
+                        </div>
+                    `;
                 }
             }
             
@@ -519,9 +645,32 @@
                     console.log('Admin bounds not available, using default');
                 }
                 
-                // Default configuration
+                // Try to get map center from buildings data
+                try {
+                    const response = await fetch('/api/buildings');
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.buildings.length > 0) {
+                            // Calculate center from buildings
+                            const lats = data.buildings.map(b => b.coordinates[0]);
+                            const lons = data.buildings.map(b => b.coordinates[1]);
+                            const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+                            const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+                            
+                            return {
+                                center: [centerLat, centerLon],
+                                zoom: 16,
+                                bounds: null
+                            };
+                        }
+                    }
+                } catch (error) {
+                    console.log('Buildings API not available, using default center');
+                }
+                
+                // Default configuration (fallback)
                 return {
-                    center: [40.7831, -73.9712],
+                    center: [17.064264, 74.282639], // Updated to match your campus config
                     zoom: 16,
                     bounds: null
                 };
@@ -530,64 +679,119 @@
             async loadBuildings() {
                 try {
                     const response = await fetch('/api/buildings');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    
                     const data = await response.json();
                     
-                    if (data.success) {
+                    if (data.success && data.buildings) {
                         this.buildings = data.buildings;
                         this.populateBuildingSelects();
                         this.showCampusOverview();
+                    } else {
+                        console.error('Buildings API returned success=false:', data);
+                        this.showError('Failed to load buildings: ' + (data.error || 'Unknown error'));
                     }
                 } catch (error) {
                     console.error('Error loading buildings:', error);
+                    this.showError('Network error loading buildings: ' + error.message);
                 }
             }
 
             populateBuildingSelects() {
+                console.log('Populating building selects with:', this.buildings);
                 const startSelect = document.getElementById('startBuilding');
                 const endSelect = document.getElementById('endBuilding');
+                
+                if (!startSelect || !endSelect) {
+                    console.error('Building select elements not found');
+                    return;
+                }
                 
                 // Clear existing options
                 startSelect.innerHTML = '<option value="">Select starting building...</option>';
                 endSelect.innerHTML = '<option value="">Select destination building...</option>';
                 
+                if (!this.buildings || this.buildings.length === 0) {
+                    console.warn('No buildings to populate');
+                    return;
+                }
+                
                 // Add building options
-                this.buildings.forEach(building => {
+                this.buildings.forEach((building, index) => {
+                    console.log(`Adding building ${index}:`, building);
                     const option1 = new Option(building.name, building.id);
                     const option2 = new Option(building.name, building.id);
                     startSelect.add(option1);
                     endSelect.add(option2);
                 });
+                
+                console.log('Building selects populated successfully');
             }
 
             showCampusOverview() {
+                console.log('Showing campus overview with buildings:', this.buildings?.length || 0);
+                
+                if (!this.map) {
+                    console.error('Map not initialized');
+                    return;
+                }
+                
                 this.clearMap();
                 
+                if (!this.buildings || this.buildings.length === 0) {
+                    console.warn('No buildings to show on map');
+                    return;
+                }
+                
                 // Add markers for all buildings
-                this.buildings.forEach(building => {
-                    const marker = L.marker([building.coordinates[0], building.coordinates[1]])
-                        .bindPopup(`
-                            <div style="width: 200px;">
-                                <h4>${building.name}</h4>
-                                <p>${building.description}</p>
-                                <button onclick="navigator.selectBuilding('${building.id}', 'start')" 
-                                        style="margin: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    Set as Start
-                                </button>
-                                <button onclick="navigator.selectBuilding('${building.id}', 'end')" 
-                                        style="margin: 5px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                                    Set as End
-                                </button>
-                            </div>
-                        `)
-                        .addTo(this.map);
+                this.buildings.forEach((building, index) => {
+                    console.log(`Adding marker for building ${index}:`, building.name, building.coordinates);
                     
-                    this.markers.push(marker);
+                    if (!building.coordinates || building.coordinates.length !== 2) {
+                        console.error('Invalid coordinates for building:', building);
+                        return;
+                    }
+                    
+                    try {
+                        const marker = L.marker([building.coordinates[0], building.coordinates[1]])
+                            .bindPopup(`
+                                <div style="width: 200px;">
+                                    <h4>${building.name}</h4>
+                                    <p>${building.description}</p>
+                                    <button onclick="window.navigator.selectBuilding('${building.id}', 'start')" 
+                                            style="margin: 5px; padding: 5px 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Set as Start
+                                    </button>
+                                    <button onclick="window.navigator.selectBuilding('${building.id}', 'end')" 
+                                            style="margin: 5px; padding: 5px 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                        Set as End
+                                    </button>
+                                </div>
+                            `)
+                            .addTo(this.map);
+                        
+                        this.markers.push(marker);
+                    } catch (error) {
+                        console.error('Error adding marker for building:', building.name, error);
+                    }
                 });
                 
+                console.log('Added markers:', this.markers.length);
+                
                 // Fit map to show all buildings
-                if (this.buildings.length > 0) {
-                    const group = new L.featureGroup(this.markers);
-                    this.map.fitBounds(group.getBounds().pad(0.1));
+                if (this.markers.length > 0) {
+                    try {
+                        const group = new L.featureGroup(this.markers);
+                        this.map.fitBounds(group.getBounds().pad(0.1));
+                        console.log('Map bounds fitted to markers');
+                    } catch (error) {
+                        console.error('Error fitting map bounds:', error);
+                    }
+                } else {
+                    console.warn('No markers added to map');
                 }
             }
 
@@ -613,14 +817,14 @@
 
             async findRoute(startId, endId) {
                 this.showLoading(true);
-                this.hideResults();
                 this.hideError();
+                this.hideResults();
                 
                 try {
                     const response = await fetch('/api/route', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
                             start: startId,
@@ -631,11 +835,43 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.currentRoute = data;
                         this.displayRoute(data);
                         this.showResults(data);
                     } else {
-                        this.showError(data.error);
+                        this.showError(data.error || 'Failed to find route');
+                    }
+                } catch (error) {
+                    this.showError('Network error: ' + error.message);
+                } finally {
+                    this.showLoading(false);
+                }
+            }
+            
+            async findRoomRoute(startId, endId, endRoom) {
+                this.showLoading(true);
+                this.hideError();
+                this.hideResults();
+                
+                try {
+                    const response = await fetch('/api/route/to-room', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            start_building: startId,
+                            end_building: endId,
+                            end_room: endRoom
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.displayRoomRoute(data);
+                        this.showRoomResults(data);
+                    } else {
+                        this.showError(data.error || 'Failed to find route to room');
                     }
                 } catch (error) {
                     this.showError('Network error: ' + error.message);
@@ -647,54 +883,161 @@
             displayRoute(routeData) {
                 this.clearMap();
                 
-                // Add markers for all buildings
+                console.log('Displaying route with data:', routeData);
+                console.log('Route coordinates:', routeData.coordinates);
+                console.log('Route path:', routeData.path);
+                
+                // Validate coordinates
+                if (!routeData.coordinates || routeData.coordinates.length < 2) {
+                    console.error('Invalid route coordinates:', routeData.coordinates);
+                    this.showError('Route coordinates are invalid');
+                    return;
+                }
+                
+                // Add start marker (green)
+                const startCoord = routeData.coordinates[0];
+                const startMarker = L.marker([startCoord[0], startCoord[1]], {
+                    icon: L.divIcon({
+                        html: '<div style="background-color: #28a745; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-play" style="font-size: 8px;"></i></div>',
+                        iconSize: [20, 20],
+                        className: 'custom-div-icon'
+                    })
+                }).bindPopup(`<h4>START: ${routeData.start_building}</h4>`).addTo(this.map);
+                this.markers.push(startMarker);
+                
+                // Add end marker (red)
+                const endCoord = routeData.coordinates[routeData.coordinates.length - 1];
+                const endMarker = L.marker([endCoord[0], endCoord[1]], {
+                    icon: L.divIcon({
+                        html: '<div style="background-color: #dc3545; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-flag-checkered" style="font-size: 8px;"></i></div>',
+                        iconSize: [20, 20],
+                        className: 'custom-div-icon'
+                    })
+                }).bindPopup(`<h4>END: ${routeData.end_building}</h4>`).addTo(this.map);
+                this.markers.push(endMarker);
+                
+                // Add waypoint markers for intermediate points (intersections)
+                for (let i = 1; i < routeData.coordinates.length - 1; i++) {
+                    const coord = routeData.coordinates[i];
+                    const pathDetail = routeData.path_details[i];
+                    if (pathDetail && pathDetail.type === 'intersection') {
+                        const waypointMarker = L.marker([coord[0], coord[1]], {
+                            icon: L.divIcon({
+                                html: '<div style="background-color: #007bff; color: white; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><i class="fas fa-circle" style="font-size: 6px;"></i></div>',
+                                iconSize: [16, 16],
+                                className: 'custom-div-icon'
+                            })
+                        }).bindPopup(`<h4>Intersection: ${pathDetail.name}</h4>`).addTo(this.map);
+                        this.markers.push(waypointMarker);
+                    }
+                }
+                
+                // Add other building markers (with lower opacity)
                 this.buildings.forEach(building => {
-                    let iconColor = 'blue';
-                    let iconHtml = '<i class="fas fa-building"></i>';
-                    
-                    if (building.id === routeData.path[0]) {
-                        iconColor = 'green';
-                        iconHtml = '<i class="fas fa-play"></i>';
-                    } else if (building.id === routeData.path[routeData.path.length - 1]) {
-                        iconColor = 'red';
-                        iconHtml = '<i class="fas fa-stop"></i>';
+                    // Skip start/end buildings (already marked)
+                    if (building.id === routeData.path[0] || building.id === routeData.path[routeData.path.length - 1]) {
+                        return;
                     }
                     
                     const marker = L.marker([building.coordinates[0], building.coordinates[1]], {
                         icon: L.divIcon({
-                            html: `<div style="background-color: ${iconColor}; color: white; border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center;">${iconHtml}</div>`,
-                            iconSize: [25, 25],
+                            html: '<div style="background-color: #6c757d; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; opacity: 0.7;"><i class="fas fa-building" style="font-size: 10px;"></i></div>',
+                            iconSize: [20, 20],
                             className: 'custom-div-icon'
                         })
-                    })
-                        .bindPopup(`
-                            <div>
-                                <h4>${building.name}</h4>
-                                <p>${building.description}</p>
-                            </div>
-                        `)
-                        .addTo(this.map);
+                    }).bindPopup(`<h4>${building.name}</h4><p>${building.description}</p>`).addTo(this.map);
                     
                     this.markers.push(marker);
                 });
                 
-                // Add route line
+                // Create route line with enhanced visibility
+                console.log('Creating polyline with coordinates:', routeData.coordinates);
                 this.routeLine = L.polyline(routeData.coordinates, {
-                    color: 'red',
-                    weight: 4,
-                    opacity: 0.8
-                }).addTo(this.map);
+                    color: '#ff0000',
+                    weight: 6,
+                    opacity: 1.0,
+                    smoothFactor: 1,
+                    dashArray: null,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                });
                 
-                // Fit map to route
-                this.map.fitBounds(this.routeLine.getBounds().pad(0.1));
+                // Add route line to map
+                this.routeLine.addTo(this.map);
+                console.log('Route line added to map');
+                
+                // Fit map to show the complete route with padding
+                try {
+                    const bounds = this.routeLine.getBounds();
+                    console.log('Route bounds:', bounds);
+                    this.map.fitBounds(bounds, { padding: [20, 20] });
+                    console.log('Map bounds fitted');
+                } catch (error) {
+                    console.error('Error fitting map bounds:', error);
+                }
+                
+                // Add route info popup on click
+                this.routeLine.bindPopup(`
+                    <div style="text-align: center;">
+                        <h4>📍 Route Information</h4>
+                        <p><strong>Distance:</strong> ${routeData.total_distance}m</p>
+                        <p><strong>Walking Time:</strong> ~${routeData.estimated_walk_time} minutes</p>
+                        <p><strong>Via:</strong> ${routeData.path.join(' → ')}</p>
+                    </div>
+                `);
+            }
+            
+            displayRoomRoute(routeData) {
+                this.clearMap();
+                
+                // Display campus route (if exists)
+                if (routeData.campus_route && routeData.campus_route.success) {
+                    this.displayRoute(routeData.campus_route);
+                }
+                
+                // Add room destination marker
+                if (routeData.interior_route && routeData.interior_route.success) {
+                    const endBuilding = this.buildings.find(b => b.id === routeData.end_building);
+                    if (endBuilding) {
+                        const roomMarker = L.marker([endBuilding.coordinates[0], endBuilding.coordinates[1]], {
+                            icon: L.divIcon({
+                                html: `<div style="background-color: purple; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; font-size: 12px;"><i class="fas fa-door-open"></i></div>`,
+                                iconSize: [30, 30],
+                                className: 'custom-div-icon'
+                            })
+                        })
+                            .bindPopup(`
+                                <div>
+                                    <h4>${routeData.interior_route.building_name}</h4>
+                                    <p><strong>Room:</strong> ${routeData.interior_route.end_room}</p>
+                                    <p><strong>Interior Distance:</strong> ${routeData.interior_route.total_distance}m</p>
+                                    <button onclick="showBuildingFloorPlan('${routeData.end_building}', '${routeData.end_room}')" 
+                                            style="background: #667eea; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                                        <i class="fas fa-map"></i> View Floor Plan
+                                    </button>
+                                </div>
+                            `)
+                            .addTo(this.map);
+                        
+                        this.markers.push(roomMarker);
+                    }
+                }
             }
 
             showResults(routeData) {
+                // Update sidebar results
                 document.getElementById('totalDistance').textContent = routeData.total_distance + 'm';
                 document.getElementById('walkTime').textContent = routeData.estimated_walk_time + ' min';
                 
                 const pathDetails = document.getElementById('pathDetails');
                 pathDetails.innerHTML = '';
+                
+                // Update floating overlay results
+                document.getElementById('overlayTotalDistance').textContent = routeData.total_distance + 'm';
+                document.getElementById('overlayWalkTime').textContent = routeData.estimated_walk_time + ' min';
+                
+                const overlayPathDetails = document.getElementById('overlayPathDetails');
+                overlayPathDetails.innerHTML = '';
                 
                 routeData.path_details.forEach((step, index) => {
                     if (step.type === 'building') {
@@ -708,10 +1051,86 @@
                             </div>
                         `;
                         pathDetails.appendChild(stepDiv);
+                        overlayPathDetails.appendChild(stepDiv.cloneNode(true));
                     }
                 });
                 
+                // Show both sidebar and floating overlay results
                 document.getElementById('resultsSection').style.display = 'block';
+                this.showRouteOverlay();
+            }
+            
+            showRoomResults(routeData) {
+                // Update sidebar results
+                document.getElementById('totalDistance').textContent = routeData.total_distance + 'm';
+                document.getElementById('walkTime').textContent = routeData.total_walk_time + ' min';
+                
+                // Update floating overlay results
+                document.getElementById('overlayTotalDistance').textContent = routeData.total_distance + 'm';
+                document.getElementById('overlayWalkTime').textContent = routeData.total_walk_time + ' min';
+                
+                const pathDetails = document.getElementById('pathDetails');
+                pathDetails.innerHTML = '';
+                
+                const overlayPathDetails = document.getElementById('overlayPathDetails');
+                overlayPathDetails.innerHTML = '';
+                
+                // Campus route section
+                if (routeData.campus_route && routeData.campus_route.success) {
+                    const campusSection = document.createElement('div');
+                    campusSection.innerHTML = `
+                        <h5 style="color: #667eea; margin-bottom: 10px;">
+                            <i class="fas fa-route"></i> Campus Route
+                        </h5>
+                    `;
+                    pathDetails.appendChild(campusSection);
+                    
+                    routeData.campus_route.path_details.forEach((step, index) => {
+                        if (step.type === 'building') {
+                            const stepDiv = document.createElement('div');
+                            stepDiv.className = 'path-step';
+                            stepDiv.innerHTML = `
+                                <div class="step-number">${step.step}</div>
+                                <div class="step-info">
+                                    <h6>${step.name}</h6>
+                                    <p>${step.distance_to_next ? `${step.distance_to_next}m to next point` : 'Building reached'}</p>
+                                </div>
+                            `;
+                            pathDetails.appendChild(stepDiv);
+                        }
+                    });
+                }
+                
+                // Interior route section
+                if (routeData.interior_route && routeData.interior_route.success) {
+                    const interiorSection = document.createElement('div');
+                    interiorSection.innerHTML = `
+                        <h5 style="color: purple; margin-bottom: 10px; margin-top: 15px;">
+                            <i class="fas fa-door-open"></i> Inside ${routeData.interior_route.building_name}
+                        </h5>
+                    `;
+                    pathDetails.appendChild(interiorSection);
+                    
+                    routeData.interior_route.path_details.forEach((step, index) => {
+                        const stepDiv = document.createElement('div');
+                        stepDiv.className = 'path-step';
+                        stepDiv.innerHTML = `
+                            <div class="step-number">${step.step}</div>
+                            <div class="step-info">
+                                <h6>${step.name} (${step.floor})</h6>
+                                <p>${step.room_type} - ${step.distance_to_next ? `${step.distance_to_next}m` : 'Destination'}</p>
+                                ${step.connection_type && step.connection_type !== 'hallway' ? `<small style="color: #666;"><i class="fas fa-${step.connection_type === 'stairs' ? 'stairs' : 'elevator'}"></i> via ${step.connection_type}</small>` : ''}
+                            </div>
+                        `;
+                        pathDetails.appendChild(stepDiv);
+                    });
+                }
+                
+                // Clone content to overlay (simplified for room routes)
+                overlayPathDetails.innerHTML = pathDetails.innerHTML;
+                
+                document.getElementById('resultsSection').style.display = 'block';
+                this.showRouteOverlay();
             }
 
             showLoading(show) {
@@ -729,8 +1148,53 @@
 
             hideResults() {
                 document.getElementById('resultsSection').style.display = 'none';
+                this.hideRouteOverlay();
+            }
+            
+            showRouteOverlay() {
+                const overlay = document.getElementById('routeResultsOverlay');
+                overlay.classList.add('show');
+            }
+            
+            hideRouteOverlay() {
+                const overlay = document.getElementById('routeResultsOverlay');
+                overlay.classList.remove('show');
             }
 
+            async loadRoomOptions() {
+                const buildingId = document.getElementById('endBuilding').value;
+                const roomSelect = document.getElementById('endRoom');
+                const roomGroup = document.getElementById('roomSelectionGroup');
+                
+                if (!buildingId) {
+                    roomGroup.style.display = 'none';
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/buildings/${buildingId}/rooms`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.rooms.length > 0) {
+                        roomSelect.innerHTML = '<option value="">Building entrance (default)</option>';
+                        
+                        data.rooms.forEach(room => {
+                            const option = document.createElement('option');
+                            option.value = room.id;
+                            option.textContent = `${room.name} (${room.floor_name})`;
+                            roomSelect.appendChild(option);
+                        });
+                        
+                        roomGroup.style.display = 'block';
+                    } else {
+                        roomGroup.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error('Error loading rooms:', error);
+                    roomGroup.style.display = 'none';
+                }
+            }
+            
             bindEvents() {
                 // Route form submission
                 document.getElementById('routeForm').addEventListener('submit', (e) => {
@@ -738,18 +1202,23 @@
                     
                     const startId = document.getElementById('startBuilding').value;
                     const endId = document.getElementById('endBuilding').value;
+                    const endRoom = document.getElementById('endRoom').value;
                     
                     if (!startId || !endId) {
                         this.showError('Please select both start and destination buildings');
                         return;
                     }
                     
-                    if (startId === endId) {
+                    if (startId === endId && !endRoom) {
                         this.showError('Start and destination buildings cannot be the same');
                         return;
                     }
                     
-                    this.findRoute(startId, endId);
+                    if (endRoom) {
+                        this.findRoomRoute(startId, endId, endRoom);
+                    } else {
+                        this.findRoute(startId, endId);
+                    }
                 });
                 
                 // Campus overview button
@@ -761,14 +1230,113 @@
             }
         }
 
+        // Global functions
+        async function loadRoomOptions() {
+            if (window.navigator) {
+                await window.navigator.loadRoomOptions();
+            }
+        }
+        
+        function showBuildingFloorPlan(buildingId, roomId) {
+            // Open floor plan in a new window or modal
+            const floorPlanUrl = `/api/buildings/${buildingId}/interior`;
+            
+            // For now, just show an alert with the information
+            // In a full implementation, you'd show a modal with floor plans
+            fetch(floorPlanUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.interior.floors) {
+                        // Find which floor contains the room
+                        let targetFloor = null;
+                        for (const [floorId, floorData] of Object.entries(data.interior.floors)) {
+                            if (floorData.rooms && floorData.rooms[roomId]) {
+                                targetFloor = floorId;
+                                break;
+                            }
+                        }
+                        
+                        if (targetFloor) {
+                            const floorPlanSvgUrl = `/api/buildings/${buildingId}/floor-plan/${targetFloor}`;
+                            
+                            // Create a modal to show the floor plan
+                            const modal = document.createElement('div');
+                            modal.style.cssText = `
+                                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                                background: rgba(0,0,0,0.8); z-index: 10000;
+                                display: flex; align-items: center; justify-content: center;
+                            `;
+                            
+                            modal.innerHTML = `
+                                <div style="background: white; padding: 20px; border-radius: 10px; max-width: 90%; max-height: 90%; overflow: auto;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                        <h3>${data.interior.building_name} - ${data.interior.floors[targetFloor].name}</h3>
+                                        <button onclick="this.closest('div[style*="position: fixed"]').remove()" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">×</button>
+                                    </div>
+                                    <iframe src="${floorPlanSvgUrl}" width="600" height="400" style="border: 1px solid #ddd; border-radius: 5px;"></iframe>
+                                    <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                                        <i class="fas fa-info-circle"></i> Room: ${roomId} is located on this floor
+                                    </p>
+                                </div>
+                            `;
+                            
+                            document.body.appendChild(modal);
+                            
+                            // Close modal when clicking outside
+                            modal.addEventListener('click', (e) => {
+                                if (e.target === modal) {
+                                    modal.remove();
+                                }
+                            });
+                        }
+                    }
+                })
+                .catch(error => {
+                    alert('Error loading floor plan: ' + error.message);
+                });
+        }
+        
+        // Global function to close route overlay
+        function closeRouteOverlay() {
+            if (window.navigator) {
+                window.navigator.hideRouteOverlay();
+            }
+        }
+        
         // Initialize the navigator when the page loads
         let navigator;
-        document.addEventListener('DOMContentLoaded', () => {
+        
+        function initializeApp() {
+            console.log('DOM Content Loaded, initializing app...');
+            
+            // Check if required elements exist
+            const mapElement = document.getElementById('map');
+            const startSelect = document.getElementById('startBuilding');
+            const endSelect = document.getElementById('endBuilding');
+            
+            if (!mapElement) {
+                console.error('Map element not found!');
+                return;
+            }
+            
+            if (!startSelect || !endSelect) {
+                console.error('Building select elements not found!');
+                return;
+            }
+            
+            console.log('All required elements found, creating navigator...');
             navigator = new CampusNavigator();
             
             // Make it globally accessible for popup buttons
             window.navigator = navigator;
-        });
+            console.log('Navigator made globally accessible');
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else {
+            initializeApp();
+        }
     </script>
 </body>
 </html>

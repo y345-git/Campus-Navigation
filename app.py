@@ -8,7 +8,10 @@ from flask_cors import CORS
 import folium
 import networkx as nx
 from pathfinding import pathfinder
-from campus_data import get_building_list, BUILDINGS, INTERSECTIONS, campus_graph, save_campus_config, CAMPUS_CONFIG, get_map_bounds, is_within_bounds, MAP_CENTER, MAP_BOUNDS_KM, calculate_distance
+from campus_data import (get_building_list, BUILDINGS, INTERSECTIONS, campus_graph, save_campus_config, CAMPUS_CONFIG, 
+                        get_map_bounds, is_within_bounds, MAP_CENTER, MAP_BOUNDS_KM, calculate_distance,
+                        BUILDING_INTERIORS, save_building_interior_config, load_building_interior_config, 
+                        load_all_building_interiors)
 import json
 import hashlib
 from datetime import datetime, timedelta
@@ -43,6 +46,12 @@ def index():
     """Serve the main web application"""
     return render_template('index.html')
 
+@app.route('/debug')
+def debug():
+    """Serve the debug page"""
+    with open('debug.html', 'r') as f:
+        return f.read()
+
 @app.route('/admin')
 def admin_panel():
     """Serve the admin panel"""
@@ -56,6 +65,13 @@ def admin_debug():
     if not check_admin_auth():
         return render_template('admin_login.html')
     return render_template('admin_debug.html')
+
+@app.route('/admin/buildings')
+def admin_buildings():
+    """Serve the building configuration panel"""
+    if not check_admin_auth():
+        return render_template('admin_login.html')
+    return render_template('admin_buildings.html')
 
 @app.route('/admin/login', methods=['POST'])
 def admin_login():
@@ -706,6 +722,269 @@ def get_graph_info():
             'success': True,
             'graph_info': info
         })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+# Building Interior API Endpoints
+
+@app.route('/api/buildings/<building_id>/interior', methods=['GET'])
+def get_building_interior(building_id):
+    """Get building interior configuration"""
+    try:
+        if building_id not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': 'Building not found'
+            }), 404
+        
+        interior_config = BUILDING_INTERIORS.get(building_id, {})
+        
+        return jsonify({
+            'success': True,
+            'building_id': building_id,
+            'interior': interior_config
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/buildings/<building_id>/interior', methods=['POST'])
+def update_building_interior(building_id):
+    """Update building interior configuration (admin only)"""
+    if not check_admin_auth():
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    
+    try:
+        if building_id not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': 'Building not found'
+            }), 404
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['floors', 'vertical_connections', 'room_types']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Ensure building_id and building_name are set correctly
+        data['building_id'] = building_id
+        data['building_name'] = BUILDINGS[building_id]['name']
+        
+        # Save configuration
+        if save_building_interior_config(building_id, data):
+            # Clear pathfinder cache for this building
+            pathfinder.clear_building_graph_cache(building_id)
+            
+            return jsonify({
+                'success': True,
+                'message': f'Building interior updated for {BUILDINGS[building_id]["name"]}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to save building configuration'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/buildings/<building_id>/rooms', methods=['GET'])
+def get_building_rooms(building_id):
+    """Get all rooms in a building"""
+    try:
+        if building_id not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': 'Building not found'
+            }), 404
+        
+        rooms = pathfinder.get_building_rooms(building_id)
+        
+        return jsonify({
+            'success': True,
+            'building_id': building_id,
+            'building_name': BUILDINGS[building_id]['name'],
+            'rooms': rooms
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/buildings/<building_id>/route', methods=['POST'])
+def find_building_interior_route(building_id):
+    """Find route within a building between two rooms"""
+    try:
+        if building_id not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': 'Building not found'
+            }), 404
+        
+        data = request.get_json()
+        if not data or 'start_room' not in data or 'end_room' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing start_room or end_room'
+            }), 400
+        
+        start_room = data['start_room']
+        end_room = data['end_room']
+        
+        route_info = pathfinder.find_interior_route(building_id, start_room, end_room)
+        return jsonify(route_info)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/route/to-room', methods=['POST'])
+def find_route_to_room():
+    """Find route from building to specific room in another building"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'start_building' not in data or 'end_building' not in data or 'end_room' not in data:
+            return jsonify({
+                'success': False,
+                'error': 'Missing start_building, end_building, or end_room'
+            }), 400
+        
+        start_building = data['start_building']
+        end_building = data['end_building']
+        end_room = data['end_room']
+        
+        # Validate building IDs
+        if start_building not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid start building: {start_building}'
+            }), 400
+            
+        if end_building not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid end building: {end_building}'
+            }), 400
+        
+        route_info = pathfinder.find_campus_to_room_route(start_building, end_building, end_room)
+        return jsonify(route_info)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/buildings/<building_id>/floor-plan/<floor_id>', methods=['GET'])
+def get_floor_plan_svg(building_id, floor_id):
+    """Generate SVG floor plan for a specific floor"""
+    try:
+        if building_id not in BUILDINGS:
+            return jsonify({
+                'success': False,
+                'error': 'Building not found'
+            }), 404
+        
+        if building_id not in BUILDING_INTERIORS:
+            return jsonify({
+                'success': False,
+                'error': 'Building interior configuration not found'
+            }), 404
+        
+        interior_config = BUILDING_INTERIORS[building_id]
+        
+        if floor_id not in interior_config.get('floors', {}):
+            return jsonify({
+                'success': False,
+                'error': f'Floor {floor_id} not found in building {building_id}'
+            }), 404
+        
+        floor_data = interior_config['floors'][floor_id]
+        floor_plan = floor_data.get('floor_plan', {'width': 100, 'height': 100})
+        
+        # Generate SVG
+        svg_width = 600
+        svg_height = 400
+        
+        svg_content = f'''
+        <svg width="{svg_width}" height="{svg_height}" viewBox="0 0 {floor_plan['width']} {floor_plan['height']}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="{floor_plan['width']}" height="{floor_plan['height']}" fill="#f8f9fa" stroke="#ddd" stroke-width="1"/>
+        '''
+        
+        # Add rooms
+        room_types = interior_config.get('room_types', {})
+        for room_id, room_data in floor_data.get('rooms', {}).items():
+            x, y = room_data.get('coordinates', [0, 0])
+            room_type = room_data.get('type', 'common')
+            color = room_types.get(room_type, {}).get('color', '#667eea')
+            
+            # Draw room as circle
+            svg_content += f'''
+            <circle cx="{x}" cy="{y}" r="3" fill="{color}" stroke="#333" stroke-width="0.5"/>
+            <text x="{x}" y="{y-5}" text-anchor="middle" font-size="8" fill="#333">{room_data.get('name', room_id)}</text>
+            '''
+        
+        # Add connections
+        for connection in floor_data.get('connections', []):
+            if len(connection) >= 2:
+                room1_id, room2_id = connection[0], connection[1]
+                room1 = floor_data.get('rooms', {}).get(room1_id)
+                room2 = floor_data.get('rooms', {}).get(room2_id)
+                
+                if room1 and room2:
+                    x1, y1 = room1.get('coordinates', [0, 0])
+                    x2, y2 = room2.get('coordinates', [0, 0])
+                    
+                    svg_content += f'''
+                    <line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#6c757d" stroke-width="1" opacity="0.7"/>
+                    '''
+        
+        # Add vertical connections (stairs, elevators) for this floor
+        for stairs in interior_config.get('vertical_connections', {}).get('stairs', []):
+            if floor_id in stairs.get('floors', []):
+                x, y = stairs.get('location', [0, 0])
+                svg_content += f'''
+                <rect x="{x-2}" y="{y-2}" width="4" height="4" fill="#dc3545" stroke="#333" stroke-width="0.5"/>
+                <text x="{x}" y="{y-5}" text-anchor="middle" font-size="6" fill="#333">Stairs</text>
+                '''
+        
+        for elevator in interior_config.get('vertical_connections', {}).get('elevators', []):
+            if floor_id in elevator.get('floors', []):
+                x, y = elevator.get('location', [0, 0])
+                svg_content += f'''
+                <rect x="{x-2}" y="{y-2}" width="4" height="4" fill="#ffc107" stroke="#333" stroke-width="0.5"/>
+                <text x="{x}" y="{y-5}" text-anchor="middle" font-size="6" fill="#333">Elevator</text>
+                '''
+        
+        svg_content += '</svg>'
+        
+        return svg_content, 200, {'Content-Type': 'image/svg+xml'}
         
     except Exception as e:
         return jsonify({
